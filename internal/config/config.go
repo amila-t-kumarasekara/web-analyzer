@@ -13,6 +13,7 @@ type Config struct {
 }
 
 func LoadConfig() *Config {
+	// Optional local dev file, if missing .env or unreadable file falls back to os.Getenv defaults.
 	_ = godotenv.Load()
 
 	port := os.Getenv("PORT")

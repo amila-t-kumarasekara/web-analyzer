@@ -57,6 +57,7 @@ func withRequestID(next http.Handler) http.Handler {
 
 func newRequestID() string {
 	var b [8]byte
+	// crypto/rand.Read only fails when the OS CSPRNG is broken; ignore and still return hex (possibly weak).
 	_, _ = rand.Read(b[:])
 	return hex.EncodeToString(b[:])
 }
