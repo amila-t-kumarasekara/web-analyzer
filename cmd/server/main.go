@@ -11,6 +11,7 @@ import (
 
 	"github.com/amila-t-kumarasekara/web-analyzer/internal/config"
 	"github.com/amila-t-kumarasekara/web-analyzer/internal/fetcher"
+	"github.com/amila-t-kumarasekara/web-analyzer/internal/httpclient"
 	"github.com/amila-t-kumarasekara/web-analyzer/internal/linkcheck"
 	"github.com/amila-t-kumarasekara/web-analyzer/internal/web"
 	"github.com/amila-t-kumarasekara/web-analyzer/pkg/consts"
@@ -23,11 +24,8 @@ func main() {
 
 	cfg := config.LoadConfig()
 
-	pageHTTP := &http.Client{
-		Timeout: consts.PageHTTPTimeout,
-	}
-	fetchClient := fetcher.New(pageHTTP, consts.DefaultMaxPageBytes)
-	linkChecker := linkcheck.New(linkcheck.NewHTTPClient(), consts.DefaultLinkWorkers)
+	fetchClient := fetcher.New(httpclient.NewPageClient(), consts.DefaultMaxPageBytes)
+	linkChecker := linkcheck.New(httpclient.NewLinkClient(), consts.DefaultLinkWorkers)
 	handler := web.NewHandler(fetchClient, linkChecker)
 
 	srv := &http.Server{

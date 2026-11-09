@@ -13,7 +13,7 @@ const (
 
 	DefaultPort               = "8080"
 	DefaultAdminAddr          = "127.0.0.1:6060"
-	DefaultLinkWorkers        = 8
+	DefaultLinkWorkers        = 32
 	DefaultMaxPageBytes int64 = 10 << 20 // 10 MiB
 
 	AnalyzeTimeout   = 30 * time.Second
@@ -21,6 +21,10 @@ const (
 
 	PageHTTPTimeout = 30 * time.Second
 	LinkHTTPTimeout = 15 * time.Second
+
+	ConnectTimeout        = 10 * time.Second
+	TLSHandshakeTimeout   = 10 * time.Second
+	ResponseHeaderTimeout = 15 * time.Second
 
 	ShutdownTimeout = 15 * time.Second
 

@@ -11,6 +11,7 @@ import (
 	"testing"
 
 	"github.com/amila-t-kumarasekara/web-analyzer/internal/fetcher"
+	"github.com/amila-t-kumarasekara/web-analyzer/internal/httpclient"
 	"github.com/amila-t-kumarasekara/web-analyzer/internal/linkcheck"
 	"github.com/amila-t-kumarasekara/web-analyzer/internal/web"
 	"github.com/amila-t-kumarasekara/web-analyzer/pkg/consts"
@@ -19,9 +20,8 @@ import (
 func newAppHandler(t *testing.T) http.Handler {
 	t.Helper()
 
-	pageHTTP := &http.Client{Timeout: consts.PageHTTPTimeout}
-	fetchClient := fetcher.New(pageHTTP, consts.DefaultMaxPageBytes)
-	linkChecker := linkcheck.New(linkcheck.NewHTTPClient(), consts.DefaultLinkWorkers)
+	fetchClient := fetcher.New(httpclient.NewPageClient(), consts.DefaultMaxPageBytes)
+	linkChecker := linkcheck.New(httpclient.NewLinkClient(), consts.DefaultLinkWorkers)
 	return web.NewHandler(fetchClient, linkChecker)
 }
 
