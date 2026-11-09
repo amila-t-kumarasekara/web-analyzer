@@ -15,6 +15,7 @@ import (
 	"github.com/amila-t-kumarasekara/web-analyzer/internal/analyzer"
 	"github.com/amila-t-kumarasekara/web-analyzer/internal/fetcher"
 	"github.com/amila-t-kumarasekara/web-analyzer/internal/linkcheck"
+	"github.com/amila-t-kumarasekara/web-analyzer/internal/netpolicy"
 	"github.com/amila-t-kumarasekara/web-analyzer/internal/validate"
 	"github.com/amila-t-kumarasekara/web-analyzer/pkg/consts"
 )
@@ -109,6 +110,22 @@ func (h *Handler) analyze(w http.ResponseWriter, r *http.Request) {
 
 	ctx, cancel := context.WithTimeout(r.Context(), consts.AnalyzeTimeout)
 	defer cancel()
+
+	if err := netpolicy.CheckURL(ctx, u); err != nil {
+		if errors.Is(err, netpolicy.ErrBlocked) {
+			h.render(w, pageView{
+				URL: raw,
+				Err: &viewError{
+					StatusCode:  http.StatusBadRequest,
+					StatusText:  http.StatusText(http.StatusBadRequest),
+					Description: "That URL is not allowed.",
+				},
+			})
+			return
+		}
+		h.render(w, h.pageFromFetchErr(raw, err))
+		return
+	}
 
 	page, err := h.fetcher.Fetch(ctx, u)
 	if err != nil {

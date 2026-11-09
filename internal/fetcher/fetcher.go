@@ -12,6 +12,7 @@ import (
 	"net/url"
 	"strings"
 
+	"github.com/amila-t-kumarasekara/web-analyzer/internal/netpolicy"
 	"github.com/amila-t-kumarasekara/web-analyzer/pkg/consts"
 )
 
@@ -55,7 +56,7 @@ func New(hc *http.Client, maxBytes int64) *Client {
 	return &Client{http: hc, maxBytes: maxBytes}
 }
 
-// Fetch GETs u and returns the page or an *Error.
+// Fetch GETs urls and returns the page or an *Error.
 func (c *Client) Fetch(ctx context.Context, u *url.URL) (*Page, error) {
 	if u == nil {
 		return nil, &Error{StatusCode: http.StatusBadRequest, Reason: "missing URL"}
@@ -128,6 +129,13 @@ func isHTMLContentType(raw string) bool {
 func mapFetchError(err error) *Error {
 	if err == nil {
 		return nil
+	}
+	if errors.Is(err, netpolicy.ErrBlocked) {
+		return &Error{
+			StatusCode: http.StatusBadRequest,
+			Reason:     "That URL is not allowed.",
+			Err:        err,
+		}
 	}
 	if errors.Is(err, context.DeadlineExceeded) {
 		return &Error{StatusCode: http.StatusGatewayTimeout, Reason: "request timed out", Err: err}

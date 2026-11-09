@@ -9,11 +9,18 @@ import (
 	"time"
 
 	"github.com/amila-t-kumarasekara/web-analyzer/internal/httpclient"
+	"github.com/amila-t-kumarasekara/web-analyzer/internal/netpolicy"
 	"github.com/amila-t-kumarasekara/web-analyzer/pkg/consts"
 )
 
+func allowLoopbackInTest(t *testing.T) {
+	t.Helper()
+	netpolicy.SetInsecureSkipForTesting(true)
+	t.Cleanup(func() { netpolicy.SetInsecureSkipForTesting(false) })
+}
+
 func TestNewPageClient_fetches(t *testing.T) {
-	t.Parallel()
+	allowLoopbackInTest(t)
 
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusOK)
@@ -31,7 +38,7 @@ func TestNewPageClient_fetches(t *testing.T) {
 }
 
 func TestDialIPv4First_prefersIPv4(t *testing.T) {
-	t.Parallel()
+	allowLoopbackInTest(t)
 
 	ln, err := net.Listen("tcp4", "127.0.0.1:0")
 	if err != nil {

@@ -7,8 +7,10 @@ import (
 	"io"
 	"net"
 	"net/http"
+	"net/url"
 	"sync"
 
+	"github.com/amila-t-kumarasekara/web-analyzer/internal/netpolicy"
 	"github.com/amila-t-kumarasekara/web-analyzer/pkg/consts"
 )
 
@@ -116,6 +118,11 @@ func setOutboundHeaders(h http.Header) {
 }
 
 func (c *Checker) request(ctx context.Context, method, u string) Outcome {
+	parsed, err := url.Parse(u)
+	if err != nil || netpolicy.CheckURL(ctx, parsed) != nil {
+		return Outcome{URL: u, Reason: "That URL is not allowed."}
+	}
+
 	req, err := http.NewRequestWithContext(ctx, method, u, nil)
 	if err != nil {
 		return Outcome{URL: u, Reason: friendlyCheckError(err)}

@@ -9,11 +9,18 @@ import (
 	"time"
 
 	"github.com/amila-t-kumarasekara/web-analyzer/internal/linkcheck"
+	"github.com/amila-t-kumarasekara/web-analyzer/internal/netpolicy"
 	"github.com/amila-t-kumarasekara/web-analyzer/pkg/consts"
 )
 
+func allowLoopbackInTest(t *testing.T) {
+	t.Helper()
+	netpolicy.SetInsecureSkipForTesting(true)
+	t.Cleanup(func() { netpolicy.SetInsecureSkipForTesting(false) })
+}
+
 func TestCheck_sendsBrowserLikeHeaders(t *testing.T) {
-	t.Parallel()
+	allowLoopbackInTest(t)
 
 	var gotUA, gotAccept, gotLang string
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -42,7 +49,7 @@ func TestCheck_sendsBrowserLikeHeaders(t *testing.T) {
 }
 
 func TestCheck_allURLs_checked(t *testing.T) {
-	t.Parallel()
+	allowLoopbackInTest(t)
 
 	var hits atomic.Int32
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
@@ -71,7 +78,7 @@ func TestCheck_allURLs_checked(t *testing.T) {
 }
 
 func TestCheck_contextCancel_noHang(t *testing.T) {
-	t.Parallel()
+	allowLoopbackInTest(t)
 
 	block := make(chan struct{})
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

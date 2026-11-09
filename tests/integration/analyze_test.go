@@ -13,12 +13,15 @@ import (
 	"github.com/amila-t-kumarasekara/web-analyzer/internal/fetcher"
 	"github.com/amila-t-kumarasekara/web-analyzer/internal/httpclient"
 	"github.com/amila-t-kumarasekara/web-analyzer/internal/linkcheck"
+	"github.com/amila-t-kumarasekara/web-analyzer/internal/netpolicy"
 	"github.com/amila-t-kumarasekara/web-analyzer/internal/web"
 	"github.com/amila-t-kumarasekara/web-analyzer/pkg/consts"
 )
 
 func newAppHandler(t *testing.T) http.Handler {
 	t.Helper()
+	netpolicy.SetInsecureSkipForTesting(true)
+	t.Cleanup(func() { netpolicy.SetInsecureSkipForTesting(false) })
 
 	fetchClient := fetcher.New(httpclient.NewPageClient(), consts.DefaultMaxPageBytes)
 	linkChecker := linkcheck.New(httpclient.NewLinkClient(), consts.DefaultLinkWorkers)
@@ -26,8 +29,6 @@ func newAppHandler(t *testing.T) http.Handler {
 }
 
 func TestAnalyze_fullStack_success(t *testing.T) {
-	t.Parallel()
-
 	extBroken := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusNotFound)
 	}))
@@ -86,8 +87,6 @@ func TestAnalyze_fullStack_success(t *testing.T) {
 }
 
 func TestAnalyze_fullStack_unreachablePage(t *testing.T) {
-	t.Parallel()
-
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.Header().Set("Content-Type", "text/html; charset=utf-8")
 		w.WriteHeader(http.StatusNotFound)
