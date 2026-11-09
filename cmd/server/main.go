@@ -52,7 +52,22 @@ func main() {
 			Addr:              cfg.AdminAddr,
 			Handler:           adminMux,
 			ReadHeaderTimeout: consts.ReadHeaderTimeout,
+			ReadTimeout:       consts.ReadTimeout,
+			WriteTimeout:      consts.WriteTimeout,
+			IdleTimeout:       consts.IdleTimeout,
 		}
+	}
+
+	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
+	defer stop()
+
+	serveErr := make(chan error, 1)
+	go func() {
+		logger.Info("server listening", slog.String("port", cfg.Port))
+		serveErr <- srv.ListenAndServe()
+	}()
+
+	if adminSrv != nil {
 		go func() {
 			logger.Info("admin server listening", slog.String("addr", cfg.AdminAddr))
 			if err := adminSrv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
@@ -61,18 +76,14 @@ func main() {
 		}()
 	}
 
-	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
-	defer stop()
-
-	go func() {
-		logger.Info("server listening", slog.String("port", cfg.Port))
-		if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+	select {
+	case <-ctx.Done():
+	case err := <-serveErr:
+		if err != nil && err != http.ErrServerClosed {
 			logger.Error("server", slog.Any("err", err))
 			os.Exit(1)
 		}
-	}()
-
-	<-ctx.Done()
+	}
 	logger.Info("shutting down")
 
 	shutdownCtx, cancel := context.WithTimeout(context.Background(), consts.ShutdownTimeout)

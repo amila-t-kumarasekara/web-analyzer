@@ -104,5 +104,5 @@ func withRecover(next http.Handler) http.Handler {
 }
 
 func chain(h http.Handler) http.Handler {
-	return withRecover(withObserve(withRequestID(h)))
+	return withRequestID(withObserve(withRecover(h)))
 }

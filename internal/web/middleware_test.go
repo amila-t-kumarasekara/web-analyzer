@@ -24,6 +24,24 @@ func TestWithRequestID(t *testing.T) {
 	}
 }
 
+func TestChain_generatesRequestID(t *testing.T) {
+	t.Parallel()
+
+	var ctxID string
+	h := chain(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		ctxID, _ = r.Context().Value(requestIDKey{}).(string)
+	}))
+
+	rr := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodGet, "/", nil)
+	h.ServeHTTP(rr, req)
+
+	hdr := rr.Header().Get("X-Request-ID")
+	if ctxID == "" || hdr == "" || ctxID != hdr {
+		t.Fatalf("header=%q ctx=%q", hdr, ctxID)
+	}
+}
+
 func TestWithRecover(t *testing.T) {
 	t.Parallel()
 
