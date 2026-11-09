@@ -1,8 +1,11 @@
 package analyzer
 
 import (
+	"net"
 	"net/url"
 	"strings"
+
+	"golang.org/x/net/publicsuffix"
 )
 
 type linkKind int
@@ -55,12 +58,35 @@ func classify(href string, base *url.URL) (*url.URL, linkKind) {
 	return abs, linkExternal
 }
 
-// sameHost reports whether a and b refer to the same site.
+// sameHost reports whether a and b refer to the same site. Subdomains of the
+// same registrable domain (m.example.com, www.example.com, example.com) count
+// as one site. Hosts without a registrable domain (IPs, localhost) must match
+// exactly, including port.
 func sameHost(a, b *url.URL) bool {
 	if a == nil || b == nil {
 		return false
 	}
+	da, okA := registrableDomain(a)
+	db, okB := registrableDomain(b)
+	if okA && okB {
+		return da == db
+	}
 	return siteKey(a) == siteKey(b)
+}
+
+// registrableDomain returns the eTLD+1 of u's host (e.g. "example.com" for
+// "developers.example.com"). ok is false for IPs, localhost and other hosts
+// that have no registrable domain.
+func registrableDomain(u *url.URL) (string, bool) {
+	host := strings.ToLower(u.Hostname())
+	if host == "" || net.ParseIP(host) != nil {
+		return "", false
+	}
+	d, err := publicsuffix.EffectiveTLDPlusOne(host)
+	if err != nil {
+		return "", false
+	}
+	return d, true
 }
 
 func siteKey(u *url.URL) string {
