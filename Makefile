@@ -9,6 +9,7 @@ GO_VERSION ?= 1.27
 COVER_MIN ?= 70
 COVER_PROFILE ?= tmp/cover.out
 TEST_PKGS ?= ./internal/... ./pkg/...
+INTEGRATION_PKGS ?= $(TEST_PKGS) ./tests/...
 
 ## list targets
 help: 
@@ -39,7 +40,7 @@ cover:
 
 ## integration tests (go test -tags=integration)
 test-integration: 
-	go test -race -tags=integration $(TEST_PKGS)
+	go test -race -tags=integration $(INTEGRATION_PKGS)
 
 ## go vet and golangci-lint when installed
 lint: 
