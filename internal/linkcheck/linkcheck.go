@@ -10,6 +10,10 @@ import (
 	"sync"
 )
 
+// maxGetBodyDrain limits how much of a GET response body is read during link
+// checks so fallbacks do not download full pages.
+const maxGetBodyDrain int64 = 64 << 10 // 64 KiB
+
 // Result is the outcome of checking every submitted URL (or stopping early).
 type Result struct {
 	Outcomes   []Outcome
@@ -115,7 +119,7 @@ func (c *Checker) request(ctx context.Context, method, u string) Outcome {
 	}
 	defer resp.Body.Close()
 	if method == http.MethodGet {
-		_, _ = io.Copy(io.Discard, resp.Body)
+		drainGetBody(resp.Body)
 	}
 
 	code := resp.StatusCode
@@ -128,6 +132,10 @@ func (c *Checker) request(ctx context.Context, method, u string) Outcome {
 		o.Reason = http.StatusText(code)
 	}
 	return o
+}
+
+func drainGetBody(r io.Reader) {
+	_, _ = io.CopyN(io.Discard, r, maxGetBodyDrain)
 }
 
 func friendlyCheckError(err error) string {

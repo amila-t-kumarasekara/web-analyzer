@@ -4,62 +4,75 @@ import (
 	"strings"
 
 	"golang.org/x/net/html"
-	"golang.org/x/net/html/atom"
 )
 
-// looksLikeLoginForm reports whether form appears to be for signing in.
-func looksLikeLoginForm(form *html.Node) bool {
-	if form == nil || form.DataAtom != atom.Form {
-		return false
-	}
-
-	loginHint := loginHintInForm(form)
-	var hasPassword, hasTextLike bool
-
-	var walk func(*html.Node)
-	walk = func(n *html.Node) {
-		if n.Type != html.ElementNode {
-			for c := n.FirstChild; c != nil; c = c.NextSibling {
-				walk(c)
-			}
-			return
-		}
-
-		switch n.DataAtom {
-		case atom.Input:
-			typ := strings.ToLower(strings.TrimSpace(attr(n, "type")))
-			switch typ {
-			case "password":
-				hasPassword = true
-			case "", "text", "email":
-				hasTextLike = true
-			}
-			ac := strings.ToLower(attr(n, "autocomplete"))
-			if ac == "username" || ac == "current-password" {
-				hasPassword = hasPassword || ac == "current-password"
-				hasTextLike = hasTextLike || ac == "username"
-			}
-		case atom.Form:
-			// Ignore nested forms.
-			return
-		}
-
-		for c := n.FirstChild; c != nil; c = c.NextSibling {
-			walk(c)
-		}
-	}
-
-	for c := form.FirstChild; c != nil; c = c.NextSibling {
-		walk(c)
-	}
-	if hasPassword {
-		return true
-	}
-	return loginHint && hasTextLike
+type formState struct {
+	depth       int
+	hint        bool
+	hasPassword bool
+	hasTextLike bool
 }
 
-func loginHintInForm(form *html.Node) bool {
-	for _, a := range form.Attr {
+func (f *formState) start(attrs []html.Attribute) {
+	if f.depth > 0 {
+		// Nested <form> start tags are ignored by the HTML5 parser.
+		return
+	}
+	f.hint = loginHintInAttrs(attrs)
+	f.hasPassword = false
+	f.hasTextLike = false
+	f.depth++
+}
+
+func (f *formState) input(attrs []html.Attribute) {
+	if f.depth != 1 {
+		return
+	}
+	typ := strings.ToLower(strings.TrimSpace(attr(attrs, "type")))
+	switch typ {
+	case "password":
+		f.hasPassword = true
+	case "", "text", "email":
+		f.hasTextLike = true
+	}
+	ac := strings.ToLower(attr(attrs, "autocomplete"))
+	if ac == "username" || ac == "current-password" {
+		f.hasPassword = f.hasPassword || ac == "current-password"
+		f.hasTextLike = f.hasTextLike || ac == "username"
+	}
+}
+
+func (f *formState) end() bool {
+	if f.depth == 0 {
+		return false
+	}
+	login := false
+	if f.depth == 1 {
+		login = f.hasPassword || (f.hint && f.hasTextLike)
+	}
+	f.depth--
+	if f.depth == 0 {
+		f.hint = false
+		f.hasPassword = false
+		f.hasTextLike = false
+	}
+	return login
+}
+
+func (f *formState) flush() bool {
+	if f.depth == 0 {
+		return false
+	}
+	login := f.hasPassword || (f.hint && f.hasTextLike)
+	f.depth = 0
+	f.hint = false
+	f.hasPassword = false
+	f.hasTextLike = false
+	return login
+}
+
+func loginHintInAttrs(attrs []html.Attribute) bool {
+	for _, a := range attrs {
 		val := strings.ToLower(a.Val)
 		switch strings.ToLower(a.Key) {
 		case "action", "id", "name", "class":

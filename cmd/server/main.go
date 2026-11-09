@@ -26,12 +26,8 @@ func main() {
 	pageHTTP := &http.Client{
 		Timeout: consts.PageHTTPTimeout,
 	}
-	linkHTTP := &http.Client{
-		Timeout: consts.LinkHTTPTimeout,
-	}
-
 	fetchClient := fetcher.New(pageHTTP, consts.DefaultMaxPageBytes)
-	linkChecker := linkcheck.New(linkHTTP, consts.DefaultLinkWorkers)
+	linkChecker := linkcheck.New(linkcheck.NewHTTPClient(), consts.DefaultLinkWorkers)
 	handler := web.NewHandler(fetchClient, linkChecker)
 
 	srv := &http.Server{

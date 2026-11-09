@@ -16,7 +16,8 @@ const (
 	DefaultLinkWorkers        = 8
 	DefaultMaxPageBytes int64 = 10 << 20 // 10 MiB
 
-	AnalyzeTimeout = 30 * time.Second
+	AnalyzeTimeout   = 30 * time.Second
+	LinkCheckTimeout = 20 * time.Second
 
 	PageHTTPTimeout = 30 * time.Second
 	LinkHTTPTimeout = 15 * time.Second

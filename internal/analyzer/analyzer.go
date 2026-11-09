@@ -23,45 +23,58 @@ type Result struct {
 
 // Analyze parses r once and fills a Result. base resolves relative links.
 func Analyze(r io.Reader, base *url.URL) (Result, error) {
-	doc, err := html.Parse(r)
-	if err != nil {
-		return Result{}, err
-	}
-
 	res := Result{HTMLVersion: htmlVersion("", "", false)}
 	linkBase := base
 	seen := make(map[string]struct{})
-	var sawDoctype bool
 
-	var walk func(n *html.Node)
-	walk = func(n *html.Node) {
-		switch n.Type {
-		case html.DoctypeNode:
+	var sawDoctype bool
+	var inTitle bool
+	var titleBuf strings.Builder
+	var form formState
+
+	z := html.NewTokenizer(r)
+	for {
+		tt := z.Next()
+		if tt == html.ErrorToken {
+			if z.Err() == io.EOF {
+				break
+			}
+			return Result{}, z.Err()
+		}
+		t := z.Token()
+
+		switch tt {
+		case html.DoctypeToken:
 			if !sawDoctype {
 				sawDoctype = true
-				pub, sys := doctypeAttrs(n)
+				pub, sys := doctypeIDs(t.Data)
 				res.HTMLVersion = htmlVersion(pub, sys, true)
 			}
-		case html.ElementNode:
-			switch n.DataAtom {
+		case html.TextToken:
+			if inTitle && res.Title == "" {
+				titleBuf.WriteString(t.Data)
+			}
+		case html.StartTagToken, html.SelfClosingTagToken:
+			switch t.DataAtom {
 			case atom.Title:
 				if res.Title == "" {
-					res.Title = strings.TrimSpace(textContent(n))
+					inTitle = true
+					titleBuf.Reset()
 				}
 			case atom.H1, atom.H2, atom.H3, atom.H4, atom.H5, atom.H6:
-				if level, ok := headingLevel(n.DataAtom); ok {
+				if level, ok := headingLevel(t.DataAtom); ok {
 					res.Headings[level]++
 				}
 			case atom.Base:
 				if linkBase != nil {
-					if href := attr(n, "href"); href != "" {
+					if href := attr(t.Attr, "href"); href != "" {
 						if ref, err := url.Parse(href); err == nil {
 							linkBase = linkBase.ResolveReference(ref)
 						}
 					}
 				}
 			case atom.A:
-				if href := attr(n, "href"); href != "" {
+				if href := attr(t.Attr, "href"); href != "" {
 					abs, kind := classify(href, linkBase)
 					switch kind {
 					case linkInternal:
@@ -73,51 +86,93 @@ func Analyze(r io.Reader, base *url.URL) (Result, error) {
 					}
 				}
 			case atom.Form:
-				if looksLikeLoginForm(n) {
+				if tt == html.StartTagToken {
+					form.start(t.Attr)
+				}
+			case atom.Input:
+				if tt == html.StartTagToken || tt == html.SelfClosingTagToken {
+					form.input(t.Attr)
+				}
+			}
+		case html.EndTagToken:
+			switch t.DataAtom {
+			case atom.Title:
+				if inTitle {
+					res.Title = strings.TrimSpace(titleBuf.String())
+					inTitle = false
+				}
+			case atom.Form:
+				if form.end() {
 					res.HasLoginForm = true
 				}
 			}
 		}
-
-		for c := n.FirstChild; c != nil; c = c.NextSibling {
-			walk(c)
-		}
 	}
 
-	walk(doc)
+	if inTitle && res.Title == "" {
+		res.Title = strings.TrimSpace(titleBuf.String())
+	}
+	if form.flush() {
+		res.HasLoginForm = true
+	}
+
 	return res, nil
 }
 
-func doctypeAttrs(n *html.Node) (public, system string) {
-	for _, a := range n.Attr {
-		switch strings.ToLower(a.Key) {
-		case "public":
-			public = a.Val
-		case "system":
-			system = a.Val
+// doctypeIDs extracts public and system identifiers from a DoctypeToken's Data,
+// following the same rules as golang.org/x/net/html's parseDoctype.
+func doctypeIDs(s string) (public, system string) {
+	const ws = " \t\n\r\f"
+
+	space := strings.IndexAny(s, ws)
+	if space == -1 {
+		space = len(s)
+	}
+	s = strings.TrimLeft(s[space:], ws)
+
+	if len(s) < 6 {
+		return "", ""
+	}
+
+	key := strings.ToLower(s[:6])
+	s = s[6:]
+	for key == "public" || key == "system" {
+		s = strings.TrimLeft(s, ws)
+		if s == "" {
+			break
+		}
+		quote := s[0]
+		if quote != '"' && quote != '\'' {
+			break
+		}
+		s = s[1:]
+		q := strings.IndexRune(s, rune(quote))
+		var id string
+		if q == -1 {
+			id = s
+			s = ""
+		} else {
+			id = s[:q]
+			s = s[q+1:]
+		}
+		if key == "public" {
+			public = id
+			key = "system"
+		} else {
+			system = id
+			key = ""
 		}
 	}
 	return public, system
 }
 
-func attr(n *html.Node, key string) string {
-	for _, a := range n.Attr {
+func attr(attrs []html.Attribute, key string) string {
+	for _, a := range attrs {
 		if strings.EqualFold(a.Key, key) {
 			return a.Val
 		}
 	}
 	return ""
-}
-
-func textContent(n *html.Node) string {
-	if n.Type == html.TextNode {
-		return n.Data
-	}
-	var b strings.Builder
-	for c := n.FirstChild; c != nil; c = c.NextSibling {
-		b.WriteString(textContent(c))
-	}
-	return b.String()
 }
 
 func headingLevel(a atom.Atom) (int, bool) {

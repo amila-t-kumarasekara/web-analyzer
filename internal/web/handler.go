@@ -130,7 +130,9 @@ func (h *Handler) analyze(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	checked := h.checker.Check(ctx, result.CheckURLs)
+	linkCtx, linkCancel := context.WithTimeout(r.Context(), consts.LinkCheckTimeout)
+	defer linkCancel()
+	checked := h.checker.Check(linkCtx, result.CheckURLs)
 	broken := make([]linkcheck.Outcome, 0)
 	for _, o := range checked.Outcomes {
 		if !o.OK {
