@@ -49,7 +49,9 @@ func looksLikeLoginForm(form *html.Node) bool {
 		}
 	}
 
-	walk(form)
+	for c := form.FirstChild; c != nil; c = c.NextSibling {
+		walk(c)
+	}
 	if hasPassword {
 		return true
 	}
