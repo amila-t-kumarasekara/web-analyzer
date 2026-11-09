@@ -8,6 +8,8 @@ import (
 	"net"
 	"net/http"
 	"sync"
+
+	"github.com/amila-t-kumarasekara/web-analyzer/pkg/consts"
 )
 
 // maxGetBodyDrain limits how much of a GET response body is read during link
@@ -107,11 +109,18 @@ func headFallbackToGet(status int) bool {
 	return status == http.StatusMethodNotAllowed || status == http.StatusNotImplemented
 }
 
+func setOutboundHeaders(h http.Header) {
+	h.Set("User-Agent", consts.UserAgent)
+	h.Set("Accept", "text/html,*/*")
+	h.Set("Accept-Language", "en-US,en;q=0.9")
+}
+
 func (c *Checker) request(ctx context.Context, method, u string) Outcome {
 	req, err := http.NewRequestWithContext(ctx, method, u, nil)
 	if err != nil {
 		return Outcome{URL: u, Reason: friendlyCheckError(err)}
 	}
+	setOutboundHeaders(req.Header)
 
 	resp, err := c.http.Do(req)
 	if err != nil {

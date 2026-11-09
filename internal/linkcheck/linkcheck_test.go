@@ -9,7 +9,37 @@ import (
 	"time"
 
 	"github.com/amila-t-kumarasekara/web-analyzer/internal/linkcheck"
+	"github.com/amila-t-kumarasekara/web-analyzer/pkg/consts"
 )
+
+func TestCheck_sendsBrowserLikeHeaders(t *testing.T) {
+	t.Parallel()
+
+	var gotUA, gotAccept, gotLang string
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		gotUA = r.Header.Get("User-Agent")
+		gotAccept = r.Header.Get("Accept")
+		gotLang = r.Header.Get("Accept-Language")
+		w.WriteHeader(http.StatusOK)
+	}))
+	t.Cleanup(srv.Close)
+
+	c := linkcheck.New(srv.Client(), 1)
+	res := c.Check(context.Background(), []string{srv.URL})
+
+	if len(res.Outcomes) != 1 || !res.Outcomes[0].OK {
+		t.Fatalf("outcome = %+v", res.Outcomes)
+	}
+	if gotUA != consts.UserAgent {
+		t.Fatalf("User-Agent = %q, want %q", gotUA, consts.UserAgent)
+	}
+	if gotAccept != "text/html,*/*" {
+		t.Fatalf("Accept = %q", gotAccept)
+	}
+	if gotLang != "en-US,en;q=0.9" {
+		t.Fatalf("Accept-Language = %q", gotLang)
+	}
+}
 
 func TestCheck_allURLs_checked(t *testing.T) {
 	t.Parallel()
