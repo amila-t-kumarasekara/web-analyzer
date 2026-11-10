@@ -32,10 +32,21 @@ type linkChecker interface {
 	Check(ctx context.Context, urls []string) linkcheck.Result
 }
 
+type urlPolicy interface {
+	CheckURL(ctx context.Context, u *url.URL) error
+}
+
+type netpolicyURL struct{}
+
+func (netpolicyURL) CheckURL(ctx context.Context, u *url.URL) error {
+	return netpolicy.CheckURL(ctx, u)
+}
+
 // Handler serves the form and analysis results.
 type Handler struct {
 	fetcher pageFetcher
 	checker linkChecker
+	policy  urlPolicy
 	tmpl    *template.Template
 	log     *slog.Logger
 }
@@ -58,6 +69,10 @@ type viewError struct {
 
 // NewHandler builds the router with all routes and middleware.
 func NewHandler(f pageFetcher, c linkChecker) http.Handler {
+	return newHandler(f, c, netpolicyURL{})
+}
+
+func newHandler(f pageFetcher, c linkChecker, policy urlPolicy) http.Handler {
 	tmpl, err := template.ParseFS(templateFS, "templates/index.html")
 	if err != nil {
 		panic("web: parse templates: " + err.Error())
@@ -66,6 +81,7 @@ func NewHandler(f pageFetcher, c linkChecker) http.Handler {
 	h := &Handler{
 		fetcher: f,
 		checker: c,
+		policy:  policy,
 		tmpl:    tmpl,
 		log:     slog.Default(),
 	}
@@ -111,7 +127,7 @@ func (h *Handler) analyze(w http.ResponseWriter, r *http.Request) {
 	ctx, cancel := context.WithTimeout(r.Context(), consts.AnalyzeTimeout)
 	defer cancel()
 
-	if err := netpolicy.CheckURL(ctx, u); err != nil {
+	if err := h.policy.CheckURL(ctx, u); err != nil {
 		if errors.Is(err, netpolicy.ErrBlocked) {
 			h.render(w, pageView{
 				URL: raw,

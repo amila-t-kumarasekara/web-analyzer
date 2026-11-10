@@ -29,10 +29,18 @@ func (s stubCheck) Check(context.Context, []string) linkcheck.Result {
 	return s.res
 }
 
+type stubURLPolicy struct{}
+
+func (stubURLPolicy) CheckURL(context.Context, *url.URL) error { return nil }
+
+func testHandler(f pageFetcher, c linkChecker) http.Handler {
+	return newHandler(f, c, stubURLPolicy{})
+}
+
 func TestHealthz(t *testing.T) {
 	t.Parallel()
 
-	h := NewHandler(stubFetch{}, stubCheck{})
+	h := testHandler(stubFetch{}, stubCheck{})
 	rr := httptest.NewRecorder()
 	h.ServeHTTP(rr, httptest.NewRequest(http.MethodGet, "/healthz", nil))
 
@@ -44,7 +52,7 @@ func TestHealthz(t *testing.T) {
 func TestIndex(t *testing.T) {
 	t.Parallel()
 
-	h := NewHandler(stubFetch{}, stubCheck{})
+	h := testHandler(stubFetch{}, stubCheck{})
 	rr := httptest.NewRecorder()
 	h.ServeHTTP(rr, httptest.NewRequest(http.MethodGet, "/", nil))
 
@@ -59,7 +67,7 @@ func TestIndex(t *testing.T) {
 func TestAnalyze_invalidURL(t *testing.T) {
 	t.Parallel()
 
-	h := NewHandler(stubFetch{}, stubCheck{})
+	h := testHandler(stubFetch{}, stubCheck{})
 	rr := httptest.NewRecorder()
 	req := httptest.NewRequest(http.MethodPost, "/analyze", strings.NewReader("url=not+a+url"))
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
@@ -78,7 +86,7 @@ func TestAnalyze_success(t *testing.T) {
 	html := []byte(`<!DOCTYPE html><html><head><title>Hello</title></head><body><h1>x</h1></body></html>`)
 	sf := stubFetch{page: &fetcher.Page{FinalURL: final, Body: html, Status: http.StatusOK}}
 
-	h := NewHandler(sf, stubCheck{})
+	h := testHandler(sf, stubCheck{})
 	rr := httptest.NewRecorder()
 	req := httptest.NewRequest(http.MethodPost, "/analyze", strings.NewReader("url=https://example.com"))
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
@@ -97,7 +105,7 @@ func TestAnalyze_fetchError(t *testing.T) {
 	t.Parallel()
 
 	sf := stubFetch{err: &fetcher.Error{StatusCode: http.StatusNotFound, Reason: "Not Found"}}
-	h := NewHandler(sf, stubCheck{})
+	h := testHandler(sf, stubCheck{})
 	rr := httptest.NewRecorder()
 	req := httptest.NewRequest(http.MethodPost, "/analyze", strings.NewReader("url=https://example.com/missing"))
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
