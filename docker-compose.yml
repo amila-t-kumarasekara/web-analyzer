@@ -1,0 +1,20 @@
+name: web-analyzer
+
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        GO_VERSION: "1.27"
+    image: web-analyzer:latest
+    ports:
+      - "8080:8080"
+      - "6060:6060"
+    environment:
+      PORT: "8080"
+      ADMIN_ADDR: ":6060"
+    env_file:
+      - path: .env
+        required: false
+    restart: unless-stopped
