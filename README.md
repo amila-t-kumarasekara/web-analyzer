@@ -245,6 +245,9 @@ The app is a single Go binary with a layered layout. Dependencies point inward: 
 
 ![request flow](./docs/images/request-flow.webp)
 
+
+[excalidraw diagram](https://excalidraw.com/#room=a8e4bb67608d7185fa44,PgHPigN87uq5CXVGYuiuhQ)
+
 ### Concurrency design
 
 Link checking is the only concurrent part (`internal/linkcheck`):
