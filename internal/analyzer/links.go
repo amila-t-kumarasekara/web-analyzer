@@ -22,9 +22,6 @@ func classify(href string, base *url.URL) (*url.URL, linkKind) {
 	if href == "" || base == nil {
 		return nil, linkSkip
 	}
-	if strings.HasPrefix(href, "#") {
-		return nil, linkSkip
-	}
 
 	lower := strings.ToLower(href)
 	switch {
@@ -51,11 +48,36 @@ func classify(href string, base *url.URL) (*url.URL, linkKind) {
 	if abs.Host == "" {
 		return nil, linkSkip
 	}
+	abs = unwrapRedirect(abs)
 
 	if sameHost(abs, base) {
 		return abs, linkInternal
 	}
 	return abs, linkExternal
+}
+
+// unwrapRedirect follows common outbound link wrappers (e.g. l.example.com/l.php?u=…)
+// and returns the embedded http(s) target so classification uses the real destination.
+func unwrapRedirect(u *url.URL) *url.URL {
+	if u == nil || u.Path != "/l.php" {
+		return u
+	}
+	host := strings.ToLower(u.Hostname())
+	if host == "" {
+		return u
+	}
+	first, _, ok := strings.Cut(host, ".")
+	if !ok || (first != "l" && first != "lm") {
+		return u
+	}
+	target, err := url.Parse(u.Query().Get("u"))
+	if err != nil || target.Host == "" {
+		return u
+	}
+	if s := strings.ToLower(target.Scheme); s != "http" && s != "https" {
+		return u
+	}
+	return target
 }
 
 // sameHost reports whether a and b refer to the same site. Subdomains of the

@@ -57,6 +57,7 @@ type pageView struct {
 	Result        *analyzer.Result
 	HeadingRows   []headingRow
 	Broken        []linkcheck.Outcome
+	BrokenLinks   int // inaccessible anchors (a URL linked N times counts N times)
 	LinkCheckNote string
 	Err           *viewError
 }
@@ -167,9 +168,11 @@ func (h *Handler) analyze(w http.ResponseWriter, r *http.Request) {
 	defer linkCancel()
 	checked := h.checker.Check(linkCtx, result.CheckURLs)
 	broken := make([]linkcheck.Outcome, 0)
+	brokenLinks := 0
 	for _, o := range checked.Outcomes {
 		if !o.OK {
 			broken = append(broken, o)
+			brokenLinks += max(result.LinkCounts[o.URL], 1)
 		}
 	}
 
@@ -186,6 +189,7 @@ func (h *Handler) analyze(w http.ResponseWriter, r *http.Request) {
 		Result:        &result,
 		HeadingRows:   headingRows(result.Headings),
 		Broken:        broken,
+		BrokenLinks:   brokenLinks,
 		LinkCheckNote: linkNote,
 	})
 }

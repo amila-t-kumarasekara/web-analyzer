@@ -17,13 +17,17 @@ type Result struct {
 	Headings      [6]int // index 0 = h1
 	InternalLinks int
 	ExternalLinks int
-	CheckURLs     []string // unique absolute http(s) URLs to check
+	CheckURLs     []string       // unique absolute http(s) URLs to check
+	LinkCounts    map[string]int // how many anchors point at each URL in CheckURLs
 	HasLoginForm  bool
 }
 
 // Analyze parses r once and fills a Result. base resolves relative links.
 func Analyze(r io.Reader, base *url.URL) (Result, error) {
-	res := Result{HTMLVersion: htmlVersion("", "", false)}
+	res := Result{
+		HTMLVersion: htmlVersion("", "", false),
+		LinkCounts:  make(map[string]int),
+	}
 	linkBase := base
 	seen := make(map[string]struct{})
 
@@ -199,6 +203,7 @@ func addCheckURL(res *Result, seen map[string]struct{}, u *url.URL) {
 		return
 	}
 	s := u.String()
+	res.LinkCounts[s]++
 	if _, ok := seen[s]; ok {
 		return
 	}
