@@ -11,6 +11,13 @@ COVER_PROFILE ?= tmp/cover.out
 TEST_PKGS ?= ./internal/... ./pkg/...
 INTEGRATION_PKGS ?= $(TEST_PKGS) ./tests/...
 
+# -race needs CGO (on by default on macOS/Linux; often off on Windows without a C toolchain).
+ifeq ($(shell go env CGO_ENABLED),1)
+TEST_RACE ?= -race
+else
+TEST_RACE ?=
+endif
+
 ## list targets
 help: 
 	@grep -E '^[a-zA-Z0-9_.-]+:.*## ' $(MAKEFILE_LIST) | \
@@ -25,14 +32,19 @@ build:
 	@mkdir -p $(dir $(BIN))
 	CGO_ENABLED=0 go build -o $(BIN) $(MAIN_PKG)
 
-## run unit tests with race detector
-test: 
-	go test -race $(TEST_PKGS)
+## run unit tests (race detector when CGO is enabled)
+test:
+	@if [ -n "$(TEST_RACE)" ]; then \
+		echo "Running with race detector"; \
+	else \
+		echo "Running without race detector"; \
+	fi
+	go test $(TEST_RACE) $(TEST_PKGS)
 
 ## unit test coverage; fail if total under $(COVER_MIN)%
 cover: 
 	@mkdir -p $(dir $(COVER_PROFILE))
-	go test -race -covermode=atomic -coverprofile=$(COVER_PROFILE) $(TEST_PKGS)
+	go test $(TEST_RACE) -covermode=atomic -coverprofile=$(COVER_PROFILE) $(TEST_PKGS)
 	@total=$$(go tool cover -func=$(COVER_PROFILE) | awk '/total:/ {gsub(/%/,""); print $$3}'); \
 		echo "total coverage: $${total}% (min $(COVER_MIN)%)"; \
 		awk -v t="$$total" -v min="$(COVER_MIN)" 'BEGIN {exit !(t+0 >= min+0)}' || \
@@ -40,7 +52,7 @@ cover:
 
 ## integration tests (go test -tags=integration)
 test-integration: 
-	go test -race -tags=integration $(INTEGRATION_PKGS)
+	go test $(TEST_RACE) -tags=integration $(INTEGRATION_PKGS)
 
 ## go vet and golangci-lint when installed
 lint: 

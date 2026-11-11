@@ -70,7 +70,7 @@ Given a URL, the analyzer reports:
 | **Logging**          | `[log/slog](https://pkg.go.dev/log/slog)` (structured JSON logs)                                       |
 | **Metrics**          | [Prometheus client_golang](https://github.com/prometheus/client_golang)                                |
 | **Profiling**        | `[net/http/pprof](https://pkg.go.dev/net/http/pprof)`                                                  |
-| **DevOps**           | Docker, Docker Compose, Makefile, GitHub Actions, [Trivy](https://trivy.dev/)                          |
+| **DevOps**           | Docker, Docker Compose, Dev Container, Makefile, GitHub Actions, [Trivy](https://trivy.dev/)          |
 | **Testing**          | Go `testing`                                                                                           |
 | **Security tooling** | `govulncheck`, `gosec`, `go vet`, Trivy (filesystem + image scan)                                      |
 
@@ -125,6 +125,22 @@ make run or make docker-run  or make up
 
 Open [http://localhost:8080](http://localhost:8080), enter a URL such as `https://example.com`, and press **Analyze**.
 
+### Dev Container (Cursor / VS Code)
+
+Use a reproducible Linux environment with Go **1.27**, `make`, and **gcc** (so `make test` / `make cover` can use `-race`).
+
+**Prerequisites:** [Docker](https://docs.docker.com/get-docker/) and the [Dev Containers](https://marketplace.visualstudio.com/items?itemName=ms-vscode-remote.remote-containers) extension.
+
+1. Open this folder in Cursor or VS Code.
+2. Command Palette → **Dev Containers: Reopen in Container** (or accept the prompt to reopen).
+3. After the image builds and `postCreateCommand` finishes:
+
+```bash
+make run
+```
+
+Ports **8080** (app) and **6060** (admin / metrics / pprof) are forwarded to your host. Run `make test`, `make cover`, and `make test-integration` inside the container as usual.
+
 Run `make help` for the full list of targets. Key targets:
 
 
@@ -132,7 +148,7 @@ Run `make help` for the full list of targets. Key targets:
 | ----------------------- | ---------------------------------------------- |
 | `make run`              | Run the server locally                         |
 | `make build`            | Compile to `bin/server` (`CGO_ENABLED=0`)      |
-| `make test`             | Unit tests with the race detector              |
+| `make test`             | Unit tests (race detector when CGO is enabled) |
 | `make cover`            | Unit tests with coverage; fails below 70%      |
 | `make test-integration` | Unit + integration tests (`-tags=integration`) |
 | `make lint`             | `go vet` and `golangci-lint` (if installed)    |
@@ -401,9 +417,26 @@ curl -s "http://localhost:6060/debug/pprof/goroutine?debug=1" | head
 ### Unit tests
 
 ```bash
-make test        # go test -race ./internal/... ./pkg/...
-make cover       # same testing approach with coverage
+make test        # ./internal/... ./pkg/... (adds -race when CGO is enabled)
+make cover       # same packages with coverage (writes tmp/cover.out)
 ```
+
+### Windows (Git Bash / MSYS)
+
+If you see `go: -race requires cgo`, Go has **CGO disabled**—common on Windows when no C compiler is installed. After this change, `make test` and `make cover` run **without** `-race` in that case, so coverage still works:
+
+```bash
+make cover
+go tool cover -html=tmp/cover.out
+```
+
+To use the race detector on Windows, install a C toolchain (for example [MSYS2](https://www.msys2.org/) with `mingw-w64-x86_64-gcc`), ensure `gcc` is on `PATH`, then:
+
+```bash
+export CGO_ENABLED=1
+make test
+```
+
 
 View the coverage report:
 

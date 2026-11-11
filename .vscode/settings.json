@@ -1,0 +1,6 @@
+{
+  "json.schemaDownload.enable": true,
+  "gopls": {
+    "build.buildFlags": ["-tags=integration"]
+  }
+}

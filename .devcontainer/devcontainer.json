@@ -1,0 +1,37 @@
+{
+  "name": "Web Analyzer (Go)",
+  "build": {
+    "dockerfile": "Dockerfile",
+    "context": "..",
+    "args": {
+      "GO_VERSION": "1.27"
+    }
+  },
+  "forwardPorts": [8080, 6060],
+  "portsAttributes": {
+    "8080": {
+      "label": "HTTP server",
+      "onAutoForward": "notify"
+    },
+    "6060": {
+      "label": "Admin (pprof, Prometheus)"
+    }
+  },
+  "postCreateCommand": "go mod download && (test -f .env || cp .env.example .env)",
+  "containerEnv": {
+    "PORT": "8080",
+    "ADMIN_ADDR": ":6060"
+  },
+  "customizations": {
+    "vscode": {
+      "settings": {
+        "go.testTags": "integration",
+        "gopls": {
+          "build.buildFlags": ["-tags=integration"]
+        }
+      },
+      "extensions": ["golang.go"]
+    }
+  },
+  "remoteUser": "root"
+}
