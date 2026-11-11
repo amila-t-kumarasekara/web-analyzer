@@ -49,6 +49,7 @@ func TestAnalyze_links(t *testing.T) {
 	html := `<html><body>
 <a href="/local">in</a>
 <a href="https://other.com/page">out</a>
+<a href="#">here</a>
 <a href="#top">skip</a>
 <a href="mailto:a@b.com">skip</a>
 </body></html>`
@@ -57,10 +58,10 @@ func TestAnalyze_links(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if res.InternalLinks != 1 || res.ExternalLinks != 1 {
+	if res.InternalLinks != 2 || res.ExternalLinks != 1 {
 		t.Fatalf("internal=%d external=%d", res.InternalLinks, res.ExternalLinks)
 	}
-	if len(res.CheckURLs) != 2 {
+	if len(res.CheckURLs) != 3 {
 		t.Fatalf("check URLs = %v", res.CheckURLs)
 	}
 }

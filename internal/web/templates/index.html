@@ -201,7 +201,7 @@
       <table>
         <tr><th>Internal</th><td>{{.InternalLinks}}</td></tr>
         <tr><th>External</th><td>{{.ExternalLinks}}</td></tr>
-        <tr><th>Inaccessible</th><td>{{len $.Broken}}</td></tr>
+        <tr><th>Inaccessible</th><td>{{$.BrokenLinks}}</td></tr>
       </table>
     </section>
     {{end}}
@@ -212,10 +212,10 @@
 
     {{if .Broken}}
     <details>
-      <summary>Inaccessible links ({{len .Broken}})</summary>
+      <summary>Inaccessible links ({{$.BrokenLinks}})</summary>
       <ul>
         {{range .Broken}}
-        <li>{{.URL}} — {{if .Reason}}{{.Reason}}{{else}}{{.StatusCode}}{{end}}</li>
+        <li>{{.URL}} — {{if .Reason}}{{.Reason}}{{else}}{{.StatusCode}}{{end}}{{with $n := index $.Result.LinkCounts .URL}}{{if gt $n 1}} <span class="muted">(×{{$n}} on page)</span>{{end}}{{end}}</li>
         {{end}}
       </ul>
     </details>
